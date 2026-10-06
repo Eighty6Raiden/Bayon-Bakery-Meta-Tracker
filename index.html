@@ -14,8 +14,6 @@
   <script src="./Bayon Tracker_files/saved_resource"></script>
   <!-- Chart.js CDN -->
   <script src="./Bayon Tracker_files/chart.js.download"></script>
-<!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
     tailwind.config = {
@@ -2616,170 +2614,98 @@ Language: ${currentLang === 'kh' ? 'Khmer Language (ភាសាខ្មែរ)
     });
   </script>
 
-</body></html>
-
-<!-- ... existing code ... -->
-  <!-- Tailwind CSS CDN -->
-  <script src="./Bayon Tracker_files/saved_resource"></script>
-  <!-- Chart.js CDN -->
-  <script src="./Bayon Tracker_files/chart.js.download"></script>
-  
-  <!-- Supabase JS Client v2 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script>
-    tailwind.config = {
-<!-- ... existing code ... -->
-    let formatChartInstance = null;
-    let dayChartInstance = null;
-    let pacingChartInstance = null;
+    // ===== Supabase sync: stores all app data in table public.app_kv =====
+    (function () {
+      const SB_URL = 'https://pofwgaaoaijdnimfvctt.supabase.co';
+      const SB_KEY = 'sb_publishable_HLTsQk1oaVzguAtscGNhww_0rUR_ijp';
+      const TABLE = SB_URL + '/rest/v1/app_kv';
+      const H = { apikey: SB_KEY, 'Content-Type': 'application/json' };
+      const LS_KEYS = ['bayon_brand_logo_base64', 'bayon_brand_name', 'bayon_brand_khmer', 'bayon_brand_sub'];
 
-    // Cloud / Firestore Stub
-    let db = null;
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'bayon-reels-tracker';
+      let ready = false;
+      const lastSaved = {};
 
-    // --- SUPABASE CLOUD SYNC ---
-    const SUPABASE_URL = "https://pofwgaaoaijdnimfvctt.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_HLTsQk1oaVzguAtscGNhww_0rUR_ijp";
-    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-
-    async function loadFromSupabase() {
-      if (!supabase) return;
-      const { data, error } = await supabase.from('reels').select('*').order('post_date', { ascending: false });
-      if (!error && data && data.length > 0) {
-        reelsData = data.map(r => ({
-          id: r.id,
-          title: r.title,
-          format: r.format || 'REEL',
-          pillar: r.pillar,
-          hookArchetype: r.hook_archetype,
-          hookDesc: r.hook_desc,
-          date: r.post_date,
-          duration: r.duration,
-          slideCount: r.slides_count || 1,
-          plays: r.plays,
-          reach: r.reach,
-          threeSecPlays: r.three_sec_plays,
-          avgWatchSec: parseFloat(r.avg_watch_sec) || 0,
-          shares: r.shares,
-          saves: r.saves,
-          comments: r.comments,
-          likes: r.reactions || 0,
-          spend: parseFloat(r.spend) || 0,
-          audio: r.audio,
-          creatorName: r.creator
-        }));
-        renderAll();
-        showToast("Synced with Cloud Database", "☁️");
-      }
-    }
-
-    async function saveToSupabase(reel) {
-      if (!supabase) return;
-      const row = {
-        id: String(reel.id),
-        title: reel.title,
-        format: reel.format || 'REEL',
-        pillar: reel.pillar,
-        hook_archetype: reel.hookArchetype,
-        hook_desc: reel.hookDesc,
-        post_date: reel.date,
-        duration: parseInt(reel.duration) || 0,
-        slides_count: parseInt(reel.slideCount) || 1,
-        plays: parseInt(reel.plays) || 0,
-        reach: parseInt(reel.reach) || 0,
-        three_sec_plays: parseInt(reel.threeSecPlays) || 0,
-        avg_watch_sec: parseFloat(reel.avgWatchSec) || 0,
-        shares: parseInt(reel.shares) || 0,
-        saves: parseInt(reel.saves) || 0,
-        comments: parseInt(reel.comments) || 0,
-        reactions: parseInt(reel.likes) || 0,
-        spend: parseFloat(reel.spend) || 0,
-        audio: reel.audio || '',
-        creator: reel.creatorName || ''
-      };
-      await supabase.from('reels').upsert(row);
-    }
-
-    async function deleteFromSupabase(id) {
-      if (!supabase) return;
-      await supabase.from('reels').delete().eq('id', String(id));
-    }
-  </script>
-
-  <script>
-    function getFormatBadge(format) {
-<!-- ... existing code ... -->
-    function confirmBatchDelete() {
-      const count = selectedReelIds.size;
-      openConfirm(`Delete ${count} records?`, `Are you sure you want to permanently remove these ${count} content records?`, () => {
-        selectedReelIds.forEach(id => deleteFromSupabase(id));
-        reelsData = reelsData.filter(r => !selectedReelIds.has(r.id));
-        selectedReelIds.clear();
-        renderAll();
-        showToast(`Deleted ${count} records`, '🗑️');
-      });
-    }
-
-    function confirmDeleteReel(id) {
-      const item = reelsData.find(r => r.id === id);
-      openConfirm(`Delete Post?`, `Permanently delete "${item ? item.title : 'this record'}"?`, () => {
-        reelsData = reelsData.filter(r => r.id !== id);
-        selectedReelIds.delete(id);
-        renderAll();
-        showToast('Record deleted', '🗑️');
-        deleteFromSupabase(id);
-      });
-    }
-  </script>
-
-  <script>
-    function renderAnalytics() {
-<!-- ... existing code ... -->
-      if (editId) {
-        const index = reelsData.findIndex(r => r.id === editId);
-        if (index !== -1) reelsData[index] = { ...reelsData[index], ...recordData };
-        showToast("Record updated!", "💾");
-        saveToSupabase(reelsData[index]);
-      } else {
-        const newId = `post-${Date.now().toString().slice(-5)}`;
-        const newReel = { id: newId, ...recordData };
-        reelsData.unshift(newReel);
-        showToast("Logged to cloud workspace!", "🚀");
-        saveToSupabase(newReel);
+      function snapshot() {
+        const brand = {};
+        LS_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) brand[k] = v; });
+        return {
+          reelsData: reelsData,
+          teamMembers: teamMembers,
+          customRoles: customRoles,
+          taxonomies: taxonomies,
+          activeUserId: activeUserId,
+          currentLang: currentLang,
+          brand: brand
+        };
       }
 
-      closeReelModal();
-      renderAll();
-    }
-  </script>
+      async function pull() {
+        const res = await fetch(TABLE + '?select=key,value', { headers: H });
+        if (!res.ok) throw new Error('Load failed: ' + res.status + ' ' + (await res.text()));
+        const rows = await res.json();
+        const remote = {};
+        rows.forEach(r => { remote[r.key] = r.value; });
+        return remote;
+      }
 
-  <script>
-    function renderTeamDirectory() {
-<!-- ... existing code ... -->
-    function applyParsedCsvData() {
-      if (!pendingCsvRows.length) return;
-      reelsData = [...pendingCsvRows, ...reelsData];
-      pendingCsvRows.forEach(row => saveToSupabase(row));
-      closeCsvImportModal();
-      renderAll();
-      showToast(`Imported ${pendingCsvRows.length} Meta records!`, '📥');
-    }
-  </script>
+      async function push() {
+        if (!ready) return;
+        const snap = snapshot();
+        const rows = [];
+        Object.keys(snap).forEach(k => {
+          const json = JSON.stringify(snap[k]);
+          if (lastSaved[k] !== json) rows.push({ key: k, value: snap[k], updated_at: new Date().toISOString(), _json: json });
+        });
+        if (!rows.length) return;
+        const body = rows.map(({ _json, ...r }) => r);
+        try {
+          const res = await fetch(TABLE + '?on_conflict=key', {
+            method: 'POST',
+            headers: { ...H, Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) throw new Error(res.status + ' ' + (await res.text()));
+          rows.forEach(r => { lastSaved[r.key] = r._json; });
+        } catch (err) {
+          console.error('Supabase save failed:', err);
+        }
+      }
 
-  <script>
-    function openExportModal() {
-<!-- ... existing code ... -->
-    // Initialize application on DOM ready
-    window.addEventListener('DOMContentLoaded', () => {
-      populateTaxonomyDropdowns();
-      renderTeamDirectory();
-      applyLanguageTranslations();
-      loadSavedBrandSettings();
-      renderAll();
-      loadFromSupabase();
-    });
+      function applyRemote(remote) {
+        if (remote.reelsData) reelsData = remote.reelsData;
+        if (remote.teamMembers) teamMembers = remote.teamMembers;
+        if (remote.customRoles) customRoles = remote.customRoles;
+        if (remote.taxonomies) taxonomies = remote.taxonomies;
+        if (remote.activeUserId) activeUserId = remote.activeUserId;
+        if (remote.brand) Object.keys(remote.brand).forEach(k => { if (LS_KEYS.includes(k)) { try { localStorage.setItem(k, remote.brand[k]); } catch (e) {} } });
+        if (remote.currentLang && remote.currentLang !== currentLang) setLanguage(remote.currentLang);
+        populateTaxonomyDropdowns();
+        renderTeamDirectory();
+        loadSavedBrandSettings();
+        renderAll();
+      }
+
+      window.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const remote = await pull();
+          const hasData = Object.keys(remote).length > 0;
+          if (hasData) {
+            applyRemote(remote);
+            Object.keys(remote).forEach(k => { lastSaved[k] = JSON.stringify(remote[k]); });
+          }
+          ready = true;
+          if (typeof showToast === 'function') showToast(hasData ? 'Loaded from Supabase' : 'Supabase connected', '☁️');
+          await push(); // first-time upload of current state
+        } catch (err) {
+          console.error('Supabase load failed:', err);
+          if (typeof showToast === 'function') showToast('Supabase error - check console', '⚠️');
+        }
+        setInterval(push, 2000);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) push(); });
+        window.addEventListener('pagehide', push);
+      });
+    })();
   </script>
 
 </body></html>
-<!-- ... existing code ... -->
