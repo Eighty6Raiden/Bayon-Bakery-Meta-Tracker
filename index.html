@@ -14,6 +14,8 @@
   <script src="./Bayon Tracker_files/saved_resource"></script>
   <!-- Chart.js CDN -->
   <script src="./Bayon Tracker_files/chart.js.download"></script>
+<!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
     tailwind.config = {
@@ -2615,3 +2617,169 @@ Language: ${currentLang === 'kh' ? 'Khmer Language (ភាសាខ្មែរ)
   </script>
 
 </body></html>
+
+<!-- ... existing code ... -->
+  <!-- Tailwind CSS CDN -->
+  <script src="./Bayon Tracker_files/saved_resource"></script>
+  <!-- Chart.js CDN -->
+  <script src="./Bayon Tracker_files/chart.js.download"></script>
+  
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    tailwind.config = {
+<!-- ... existing code ... -->
+    let formatChartInstance = null;
+    let dayChartInstance = null;
+    let pacingChartInstance = null;
+
+    // Cloud / Firestore Stub
+    let db = null;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'bayon-reels-tracker';
+
+    // --- SUPABASE CLOUD SYNC ---
+    const SUPABASE_URL = "https://pofwgaaoaijdnimfvctt.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_HLTsQk1oaVzguAtscGNhww_0rUR_ijp";
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    async function loadFromSupabase() {
+      if (!supabase) return;
+      const { data, error } = await supabase.from('reels').select('*').order('post_date', { ascending: false });
+      if (!error && data && data.length > 0) {
+        reelsData = data.map(r => ({
+          id: r.id,
+          title: r.title,
+          format: r.format || 'REEL',
+          pillar: r.pillar,
+          hookArchetype: r.hook_archetype,
+          hookDesc: r.hook_desc,
+          date: r.post_date,
+          duration: r.duration,
+          slideCount: r.slides_count || 1,
+          plays: r.plays,
+          reach: r.reach,
+          threeSecPlays: r.three_sec_plays,
+          avgWatchSec: parseFloat(r.avg_watch_sec) || 0,
+          shares: r.shares,
+          saves: r.saves,
+          comments: r.comments,
+          likes: r.reactions || 0,
+          spend: parseFloat(r.spend) || 0,
+          audio: r.audio,
+          creatorName: r.creator
+        }));
+        renderAll();
+        showToast("Synced with Cloud Database", "☁️");
+      }
+    }
+
+    async function saveToSupabase(reel) {
+      if (!supabase) return;
+      const row = {
+        id: String(reel.id),
+        title: reel.title,
+        format: reel.format || 'REEL',
+        pillar: reel.pillar,
+        hook_archetype: reel.hookArchetype,
+        hook_desc: reel.hookDesc,
+        post_date: reel.date,
+        duration: parseInt(reel.duration) || 0,
+        slides_count: parseInt(reel.slideCount) || 1,
+        plays: parseInt(reel.plays) || 0,
+        reach: parseInt(reel.reach) || 0,
+        three_sec_plays: parseInt(reel.threeSecPlays) || 0,
+        avg_watch_sec: parseFloat(reel.avgWatchSec) || 0,
+        shares: parseInt(reel.shares) || 0,
+        saves: parseInt(reel.saves) || 0,
+        comments: parseInt(reel.comments) || 0,
+        reactions: parseInt(reel.likes) || 0,
+        spend: parseFloat(reel.spend) || 0,
+        audio: reel.audio || '',
+        creator: reel.creatorName || ''
+      };
+      await supabase.from('reels').upsert(row);
+    }
+
+    async function deleteFromSupabase(id) {
+      if (!supabase) return;
+      await supabase.from('reels').delete().eq('id', String(id));
+    }
+  </script>
+
+  <script>
+    function getFormatBadge(format) {
+<!-- ... existing code ... -->
+    function confirmBatchDelete() {
+      const count = selectedReelIds.size;
+      openConfirm(`Delete ${count} records?`, `Are you sure you want to permanently remove these ${count} content records?`, () => {
+        selectedReelIds.forEach(id => deleteFromSupabase(id));
+        reelsData = reelsData.filter(r => !selectedReelIds.has(r.id));
+        selectedReelIds.clear();
+        renderAll();
+        showToast(`Deleted ${count} records`, '🗑️');
+      });
+    }
+
+    function confirmDeleteReel(id) {
+      const item = reelsData.find(r => r.id === id);
+      openConfirm(`Delete Post?`, `Permanently delete "${item ? item.title : 'this record'}"?`, () => {
+        reelsData = reelsData.filter(r => r.id !== id);
+        selectedReelIds.delete(id);
+        renderAll();
+        showToast('Record deleted', '🗑️');
+        deleteFromSupabase(id);
+      });
+    }
+  </script>
+
+  <script>
+    function renderAnalytics() {
+<!-- ... existing code ... -->
+      if (editId) {
+        const index = reelsData.findIndex(r => r.id === editId);
+        if (index !== -1) reelsData[index] = { ...reelsData[index], ...recordData };
+        showToast("Record updated!", "💾");
+        saveToSupabase(reelsData[index]);
+      } else {
+        const newId = `post-${Date.now().toString().slice(-5)}`;
+        const newReel = { id: newId, ...recordData };
+        reelsData.unshift(newReel);
+        showToast("Logged to cloud workspace!", "🚀");
+        saveToSupabase(newReel);
+      }
+
+      closeReelModal();
+      renderAll();
+    }
+  </script>
+
+  <script>
+    function renderTeamDirectory() {
+<!-- ... existing code ... -->
+    function applyParsedCsvData() {
+      if (!pendingCsvRows.length) return;
+      reelsData = [...pendingCsvRows, ...reelsData];
+      pendingCsvRows.forEach(row => saveToSupabase(row));
+      closeCsvImportModal();
+      renderAll();
+      showToast(`Imported ${pendingCsvRows.length} Meta records!`, '📥');
+    }
+  </script>
+
+  <script>
+    function openExportModal() {
+<!-- ... existing code ... -->
+    // Initialize application on DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
+      populateTaxonomyDropdowns();
+      renderTeamDirectory();
+      applyLanguageTranslations();
+      loadSavedBrandSettings();
+      renderAll();
+      loadFromSupabase();
+    });
+  </script>
+
+</body></html>
+<!-- ... existing code ... -->
